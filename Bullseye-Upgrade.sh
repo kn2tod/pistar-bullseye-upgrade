@@ -6,7 +6,7 @@
 #   2) remove UI option from APT packages
 #   3) update APT packages to point to Bullseye archives
 #   4) install PHP/FPM 7.4 (7.0 version removed in Bullseye)
-#   5) repoint python to 3.9; fix selected pistar py programs
+#   5) re-point python to 3.9; fix selected pistar python programs
 #
 # Assumptions:
 #   Starting from a current Raspbian/Pi-Star system: all applicable updates applied
@@ -15,14 +15,16 @@
 # Pre/Post-Install Anomalies:
 #   1) Upgrade via wifi problematic because of DNS changes during upgrade may cause disconnect(s)
 #   2) /home/pi-star/.config directory deleted?
-#   3) only three know Python programs fixed for 3.9.  Others may be modified
+#   3) only three known Python programs fixed for 3.9; others may need to be modified
 #
 #rpi-rw
+q=${1:+"-qq"}
 t1=$SECONDS
 echo "===============================> Start in-place Buster -> Bullseye update process:"
 sudo mount -o remount,rw / ; sudo mount -o remount,rw /boot
 #
 # Change the cmdline file to be consistent with current Raspbian boots:
+if [ ! "$(grep partuuid /boot/cmdline.txt)" ]; then   # (skip if this already made)
 uuid=$(ls -la /dev/disk/by-partuuid | sed -n 's/^.* \([[:alnum:]]*-[0-9]* \).*/\1/p' | sed -n 's/\(.*\)-.*/\1/p' | head -n 1)
 sudo sed -i.bak "s|\/dev\/mmcblk0p2 |PARTUUID=$uuid-02 |g" /boot/cmdline.txt
 sudo sed -i.bak "s|\/dev\/mmcblk0p2 |PARTUUID=$uuid-02 |g; s| quiet | |g" /boot/cmdline.txt
@@ -31,6 +33,7 @@ sudo sed -i "s|\/dev\/mmcblk0p2|PARTUUID=$uuid-02|g" /etc/fstab
 sudo sed -i.bak "s/mmcblk0p2 /\x2e\x2a /g" /etc/bash.bashrc
 source /etc/bash.bashrc
 echo "===============================> boot code modified"
+fi
 read -p "-- press any key to continue --" ipq
 #
 echo "===============================> Initial OS info:"
@@ -64,7 +67,6 @@ sudo apt autoremove -y
 #
 echo "===============================> Preliminary updates finished"
 read -p "-- press any key to continue --" ipq
-fi
 #
 #sudo su                # make sure Pi-Star is update to date
 #pistar-update
@@ -77,6 +79,7 @@ echo "===============================> Mod APT source lists for new OS:"
 sudo mount -o remount,rw / ; sudo mount -o remount,rw /boot
 sudo sed -i 's/buster/bullseye/g' /etc/apt/sources.list
 sudo sed -i 's/buster/bullseye/g' /etc/apt/sources.list.d/*
+fi
 #
 # ref: https://forums.raspberrypi.com/viewtopic.php?t=318159 UI problem:
 sudo sed -i 's/main ui/main # ui/g' /etc/apt/sources.list.d/raspi.list
@@ -97,20 +100,21 @@ sudo cp -p /etc/resolv.conf /home/pi-star/resolv.conf.sav
 read -p "-- press any key to continue --" ipq
 echo "===============================> Start OS update"
 sudo apt-mark hold dhcpcd5    # add per: https://github.com/pi-hole/pi-hole/issues/4051  ???
+# ref: https://forums.raspberrypi.com/viewtopic.php?t=320383 DHCPCD problem:
 echo "==="
-sudo apt update -y  # -q? -qq?
+sudo apt update -y $q  # -q? -qq?
 echo "==="
 #cat /lib/systemd/system/dhcpcd.service
 read -p "-- press any key to continue --" ipq
 echo "===============================> Start OS upgrade"
-sudo apt upgrade --without-new-pkgs -y   # reply "N" for all; -q? -qq?
+sudo apt upgrade --without-new-pkgs -y $q   # reply "N" for all; -q? -qq?
 echo "==="
 cat /lib/systemd/system/dhcpcd.service
 echo "==="
 cat /etc/systemd/system/dhcpcd.service.d/wait.conf
 #
 echo "--Half-way there!"
-read -p "--Complete upgrade? (Y/n)?" ipq
+read -p "--Complete upgrade? (Y/n)? " ipq
 if [ "$ipq" == "Y" ]; then
 #
 echo "==="
@@ -124,9 +128,8 @@ echo "==="
 ls -la /etc/resolv.conf
 #
 read -p "-- press any key to continue --" ipq
-# ref: https://forums.raspberrypi.com/viewtopic.php?t=320383 DHCPCD problem:
 echo "===============================> Finish upgrade:"
-sudo apt full-upgrade -y                 # reply "N" for all; tab-OK for all; -q? -qq?
+sudo apt full-upgrade -y $q                 # reply "N" for all; tab-OK for all; -q? -qq?
 read -p "-- press any key to continue --" ipq
 #
 echo "===============================> Cleanup:"
@@ -134,6 +137,7 @@ sudo apt autoremove -y
 #
 read -p "-- press any key to continue --" ipq
 echo "===============================> Install new PHP w/FPM:"
+if [ ! -x /usr/bin/php7.4 ]; then
 # ref: https://www.linuxcapable.com/how-to-install-php-7-4-on-debian-11-bullseye/
 sudo apt install php7.4 php7.4-fpm php7.4-cli -y
 sudo sed -i "s/php7.0-/php7.4-/g" /etc/nginx/default.d/php.conf
@@ -141,6 +145,7 @@ echo "==="
 cat /etc/nginx/default.d/php.conf
 echo "==="
 cat /lib/systemd/system/nginx.service
+fi
 #echo "Checking nginx config"
 if ! [ $(cat /lib/systemd/system/nginx.service | grep -o "mkdir") ]; then
   sudo sed -i '\/PIDFile=\/run\/nginx.pid/a ExecStartPre=\/bin\/mkdir -p \/var\/log\/nginx' /lib/systemd/system/nginx.service
@@ -150,10 +155,10 @@ if ! [ $(cat /lib/systemd/system/nginx.service | grep -o "mkdir") ]; then
   cat /lib/systemd/system/nginx.service
 fi
 echo "==="
-sudo nginx -t
-sudo systemctl restart nginx
+sudo nginx -t                          # config check
+sudo systemctl restart nginx           # restart just-in-case
 echo "==="
-php --version
+php --version                          # list current version info
 echo "==="
 pstree
 read -p "-- press any key to continue --" ipq
@@ -196,29 +201,35 @@ sudo echo "Hardware: ($(sed -n 's|^Model.*: Raspberry \(.*\)|\1|p' /proc/cpuinfo
 cat $f
 #
 #sudo mkdir /home/pi-star/.config      # deleted during update?!?
-#
 #--------------------------------------------------------------------------
-# -- still a problem:
-#sudo apt-mark unhold dhcpcd5
-#sudo apt update -y
-#sudo apt upgrade -y
-# -- does this directory need to be in temp stg?
+read -p "-- press any key to continue --" ipq
+sudo apt-mark unhold dhcpcd5
+sudo umount /var/lib/dhcpcd5
+sudo apt upgrade -y
 #sudo sed -i 's/^tmpfs\(.*\)\/var\/lib\/dhcpcd5\(.*\)/#tmpfs\1\/var\/lib\/dhcpcd5\2/g' /etc/fstab  # ????
-#sudo sed -i 's/^#tmpfs\(.*\)\/var\/lib\/dhcpcd5\(.*\)/tmpfs\1\/var\/lib\/dhcpcd5\2/g' /etc/fstab  # ????
+sudo sed -i 's/\/var\/lib\/dhcpcd5/\/var\/lib\/dhcpcd\t/g' /etc/fstab
+echo "==="
+cat /lib/systemd/system/dhcpcd.service
+echo "==="
+cat /etc/systemd/system/dhcpcd.service.d/wait.conf
 #
 echo "==============================> End of Buster-Bullseye upgrade"
 t2=$SECONDS
 echo "--- (time to complete upgrade: " $(($t2-$t1)) "secs)"
 #
 # By this point, system should be fully upgraded and operational; reboot if you want
+read -p "--Reboot (Y/n)? " ipq
+if [ "$ipq" == "Y" ]; then
+  history -a
+  sudo reboot
+fi
+#
 #rpi-ro
 sudo mount -o remount,ro / ; sudo mount -o remount,ro /boot
 #
 fi
-# reboot?
-#
 # Some usefull items to consider as part of base:
-#sudo apt install ethtool ascii htop lsof procinfo tree ntpstat sysstat nmap lsb-release dnsutils
+#sudo apt install ethtool ascii htop lsof procinfo tree ntpstat sysstat nmap lsb-release dnsutils lshw
 #
 # -- misc installation notes
 # log of responses:
@@ -240,7 +251,8 @@ fi
 #  etc/logrotate.d/exim4-paniclog
 #  etc/sysctl.conf
 #  TAB-OK: /tmp... --> etc/ssh/ssh.conf
-#  TAB-OK: /usr/share/unattended-upgrades/50unattended-upgrades  (cmt chg only?)
+#  TAB-OK: /usr/share/unattended-upgrades/50unattended-upgrades (cmt chg only?)
+#  etc/cups/cups-browsed.conf  (only if installed)
 #  etc/init.d/nmbd
 #  etc/init.d/smbd
 #
