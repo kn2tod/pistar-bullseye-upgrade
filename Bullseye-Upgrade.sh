@@ -7,6 +7,7 @@
 #   3) update APT packages to point to Bullseye archives
 #   4) install PHP/FPM 7.4 (7.0 version removed in Bullseye)
 #   5) re-point python to 3.9; fix selected pistar python programs
+#   6) finish updating held programs
 #
 # Assumptions:
 #   Starting from a current Raspbian/Pi-Star system: all applicable updates applied
@@ -17,28 +18,31 @@
 #   2) /home/pi-star/.config directory deleted?
 #   3) only three known Python programs fixed for 3.9; others may need to be modified
 #
+# ===========================================================================================================
 #rpi-rw
-q=${1:+"-qq"}
+q=${1:+"-qq"}       # invoke script with an argument ("x") to supress APT messages
 t1=$SECONDS
 echo "===============================> Start in-place Buster -> Bullseye update process:"
 sudo mount -o remount,rw / ; sudo mount -o remount,rw /boot
 #
 # Change the cmdline file to be consistent with current Raspbian boots:
 if [ ! "$(grep partuuid /boot/cmdline.txt)" ]; then   # (skip if this already made)
-uuid=$(ls -la /dev/disk/by-partuuid | sed -n 's/^.* \([[:alnum:]]*-[0-9]* \).*/\1/p' | sed -n 's/\(.*\)-.*/\1/p' | head -n 1)
-sudo sed -i.bak "s|\/dev\/mmcblk0p2 |PARTUUID=$uuid-02 |g" /boot/cmdline.txt
-sudo sed -i.bak "s|\/dev\/mmcblk0p2 |PARTUUID=$uuid-02 |g; s| quiet | |g" /boot/cmdline.txt
-sudo sed -i.bak "s|\/dev\/mmcblk0p1|PARTUUID=$uuid-01|g" /etc/fstab
-sudo sed -i "s|\/dev\/mmcblk0p2|PARTUUID=$uuid-02|g" /etc/fstab
-sudo sed -i.bak "s/mmcblk0p2 /\x2e\x2a /g" /etc/bash.bashrc
-source /etc/bash.bashrc
-echo "===============================> boot code modified"
+  uuid=$(ls -la /dev/disk/by-partuuid | sed -n 's/^.* \([[:alnum:]]*-[0-9]* \).*/\1/p' | sed -n 's/\(.*\)-.*/\1/p' | head -n 1)
+  sudo sed -i.bak "s|\/dev\/mmcblk0p2 |PARTUUID=$uuid-02 |g" /boot/cmdline.txt
+  sudo sed -i.bak "s|\/dev\/mmcblk0p2 |PARTUUID=$uuid-02 |g; s| quiet | |g" /boot/cmdline.txt
+  sudo sed -i.bak "s|\/dev\/mmcblk0p1|PARTUUID=$uuid-01|g" /etc/fstab
+  sudo sed -i "s|\/dev\/mmcblk0p2|PARTUUID=$uuid-02|g" /etc/fstab
+  sudo sed -i.bak "s/mmcblk0p2 /\x2e\x2a /g" /etc/bash.bashrc
+  source /etc/bash.bashrc
+  echo "===============================> boot code modified"
 fi
 read -p "-- press any key to continue --" ipq
 #
 echo "===============================> Initial OS info:"
 sudo mount -o remount,rw / ; sudo mount -o remount,rw /boot
 # ref: https://ostechnix.com/upgrade-to-debian-11-bullseye-from-debian-10-buster/
+cat /etc/os-release
+echo "==="
 cat /etc/debian_version         # display current system/version
 echo "==="
 hostnamectl                     # display debian codename
@@ -97,10 +101,12 @@ echo "==="
 ls -la /etc/resolv.conf
 sudo cp -p /etc/resolv.conf /home/pi-star/resolv.conf.sav
 #
+# ===========================================================================================================
 read -p "-- press any key to continue --" ipq
 echo "===============================> Start OS update"
 sudo apt-mark hold dhcpcd5    # add per: https://github.com/pi-hole/pi-hole/issues/4051  ???
 # ref: https://forums.raspberrypi.com/viewtopic.php?t=320383 DHCPCD problem:
+# ref: https://blog.riton.fr/en-us/2021/10/raspberry-pi-dhcpcd-upgrade-break-raspbian-bullseye-network/
 echo "==="
 sudo apt update -y $q  # -q? -qq?
 echo "==="
@@ -135,10 +141,12 @@ read -p "-- press any key to continue --" ipq
 echo "===============================> Cleanup:"
 sudo apt autoremove -y
 #
+# ===========================================================================================================
 read -p "-- press any key to continue --" ipq
 echo "===============================> Install new PHP w/FPM:"
 if [ ! -x /usr/bin/php7.4 ]; then
 # ref: https://www.linuxcapable.com/how-to-install-php-7-4-on-debian-11-bullseye/
+# ref: https://www.techrepublic.com/article/how-to-add-php-fpm-support-for-nginx-sites/
 sudo apt install php7.4 php7.4-fpm php7.4-cli -y
 sudo sed -i "s/php7.0-/php7.4-/g" /etc/nginx/default.d/php.conf
 echo "==="
@@ -176,9 +184,11 @@ sudo sed -i 's/^\x20\{8\}/\t/g'               /usr/local/sbin/pistar-keeper
 sudo sed -i '20,$ s/\x20\{8\}/\t/g'           /usr/local/sbin/pistar-watchdog
 sudo sed -i '20,$ s/\x20\{8\}/\t/g'           /usr/local/sbin/pistar-remote
 #
-sudo sed -i 's/if "not" in checkprocremote:/if b"not" in checkprocremote:/g' /usr/local/sbin/pistar-watchdog
+sudo sed -i 's/if "in checkprocremote:/in checkprocremote.decode():/g' pistar-watchdog
 #
 echo "==============================> Final OS info:"
+cat /etc/os-release
+echo "==="
 cat /etc/debian_version
 echo "==="
 hostnamectl
@@ -187,7 +197,7 @@ uname -mrs
 echo "==="
 cat /boot/cmdline.txt
 #
-echo "==============================> /Boot info doc info:"
+echo "==============================> /Boot info doc:"
 sudo mount -o remount,rw / ; sudo mount -o remount,rw /boot
 cd /boot
 f=$(hostname).gen.txt
@@ -217,6 +227,9 @@ echo "==============================> End of Buster-Bullseye upgrade"
 t2=$SECONDS
 echo "--- (time to complete upgrade: " $(($t2-$t1)) "secs)"
 #
+#rpi-ro
+sudo mount -o remount,ro / ; sudo mount -o remount,ro /boot   # may fail; can ignore
+#
 # By this point, system should be fully upgraded and operational; reboot if you want
 read -p "--Reboot (Y/n)? " ipq
 if [ "$ipq" == "Y" ]; then
@@ -224,38 +237,38 @@ if [ "$ipq" == "Y" ]; then
   sudo reboot
 fi
 #
-#rpi-ro
-sudo mount -o remount,ro / ; sudo mount -o remount,ro /boot
-#
 fi
+#
+# ===========================================================================================================
 # Some usefull items to consider as part of base:
 #sudo apt install ethtool ascii htop lsof procinfo tree ntpstat sysstat nmap lsb-release dnsutils lshw
 #
 # -- misc installation notes
 # log of responses:
 #  1) response during "upgrade w/o new pkgs":
-#  etc/sudoers
-#  etc/nanorc
-#  etc/logrotate.conf
-#  etc/default/rcS
+#    etc/sudoers
+#    etc/nanorc
+#    etc/logrotate.conf
+#    etc/default/rcS
 #
 #  2) responses during "full-upgrade":
-#  etc/default/useradd
-#  etc/logrotate.d/rsyslog
-#  etc/rsyslog.conf
-#  etc/nginx/nginx.conf
-#  TAB-OK: run/samba/upgrades/smb.conf
-#  etc/default/dnsmasq
-#  etc/dnsmasq.conf
-#  etc/logrotate.d/exim4-base
-#  etc/logrotate.d/exim4-paniclog
-#  etc/sysctl.conf
-#  TAB-OK: /tmp... --> etc/ssh/ssh.conf
-#  TAB-OK: /usr/share/unattended-upgrades/50unattended-upgrades (cmt chg only?)
-#  etc/cups/cups-browsed.conf  (only if installed)
-#  etc/init.d/nmbd
-#  etc/init.d/smbd
+#    etc/default/useradd
+#    etc/logrotate.d/rsyslog
+#    etc/rsyslog.conf
+#    etc/nginx/nginx.conf
+#    TAB-OK: run/samba/upgrades/smb.conf
+#    etc/default/dnsmasq
+#    etc/dnsmasq.conf
+#    etc/logrotate.d/exim4-base
+#    etc/logrotate.d/exim4-paniclog
+#    etc/sysctl.conf
+#    TAB-OK: /tmp... --> etc/ssh/ssh.conf
+#    TAB-OK: /usr/share/unattended-upgrades/50unattended-upgrades (cmt chg only?)
+#    etc/cups/cups-browsed.conf  (only if installed)
+#    etc/init.d/nmbd
+#    etc/init.d/smbd
 #
-# Modified: 2022-06-05 10:35:19
-# Software: 2022/05/12  Ver: 4.1.6  Bullseye: 11.3  Kernel: 5.15.32-v7l+
-# Hardware: (Pi 4B Rev 1.1) - Modem:  () - Disk: (sda2)
+# Example boot doc:
+#   Modified: 2022-06-05 10:35:19
+#   Software: 2022/05/12  Ver: 4.1.6  Bullseye: 11.3  Kernel: 5.15.32-v7l+
+#   Hardware: (Pi 4B Rev 1.1) - Modem:  () - Disk: (sda2)
