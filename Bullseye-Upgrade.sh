@@ -170,21 +170,24 @@ php --version                          # list current version info
 echo "==="
 pstree
 read -p "-- press any key to continue --" ipq
-echo "==============================> correct python issues:"
-sudo ln -s /usr/bin/python3.9 /usr/bin/python    #  link python generic to 3.9
+echo "==============================> Re-install python2:"
+sudo apt install python -y
+sudo ln -fs /usr/bin/python2.7 /usr/bin/python    #  link generic python to 2.7
+#echo "==============================> correct python3 issues:"
+#sudo ln -fs /usr/bin/python3.9 /usr/bin/python    #  link generic python to 3.9
 #
-sudo sed -i 's/ ConfigParser/ configparser/g' /usr/local/sbin/pistar-watchdog
-sudo sed -i 's/ ConfigParser/ configparser/g' /usr/local/sbin/pistar-remote
-sudo sed -i 's/ ConfigParser/ configparser/g' /usr/local/sbin/pistar-keeper
+#sudo sed -i 's/ ConfigParser/ configparser/g' /usr/local/sbin/pistar-watchdog
+#sudo sed -i 's/ ConfigParser/ configparser/g' /usr/local/sbin/pistar-remote
 #
-sudo sed -i 's/^\x20\{8\}/\t/g'               /usr/local/sbin/pistar-watchdog
-sudo sed -i 's/^\x20\{8\}/\t/g'               /usr/local/sbin/pistar-remote
-sudo sed -i 's/^\x20\{8\}/\t/g'               /usr/local/sbin/pistar-keeper
+#sudo sed -i 's/^\x20\{8\}/\t/g'               /usr/local/sbin/pistar-watchdog
+#sudo sed -i 's/^\x20\{8\}/\t/g'               /usr/local/sbin/pistar-remote
+#sudo sed -i 's/^\x20\{8\}/\t/g'               /usr/local/sbin/pistar-keeper
 #
-sudo sed -i '20,$ s/\x20\{8\}/\t/g'           /usr/local/sbin/pistar-watchdog
-sudo sed -i '20,$ s/\x20\{8\}/\t/g'           /usr/local/sbin/pistar-remote
+#sudo sed -i '20,$ s/\x20\{8\}/\t/g'           /usr/local/sbin/pistar-watchdog
+#sudo sed -i '20,$ s/\x20\{8\}/\t/g'           /usr/local/sbin/pistar-remote
 #
-sudo sed -i 's/if "in checkprocremote:/in checkprocremote.decode():/g' pistar-watchdog
+#sudo sed -i 's/if "in checkprocremote:/in checkprocremote.decode():/g' pistar-watchdog
+sudo python --version
 #
 echo "==============================> Final OS info:"
 cat /etc/os-release
@@ -211,6 +214,7 @@ sudo echo "Hardware: ($(sed -n 's|^Model.*: Raspberry \(.*\)|\1|p' /proc/cpuinfo
 cat $f
 #
 #sudo mkdir /home/pi-star/.config      # deleted during update?!?
+sudo sed -i 's/boot.log/bootx.log/g' /etc/logrotate.d/bootlog     # makes boot.log persistent
 #--------------------------------------------------------------------------
 read -p "-- press any key to continue --" ipq
 sudo apt-mark unhold dhcpcd5
