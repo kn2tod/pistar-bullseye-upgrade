@@ -2,11 +2,12 @@
 # Upgrade Pi-Star Buster system to Bullseye in-place:
 # 
 # Basic updates/changes:
-#   1) change boot device for consistency with all current Raspbian systems
+#   1) change boot device for consistency with all current Raspbian systems;
+#      remove obsolete cmdline.txt options; fix incorrect fstab options
 #   2) remove UI option from APT packages
 #   3) update APT packages to point to Bullseye archives
 #   4) install PHP/FPM 7.4 (7.0 version removed in Bullseye)
-#   5) re-point python to 3.9; fix selected pistar python programs
+#   5) re-install python 2.x
 #   6) finish updating held programs
 #
 # Assumptions:
@@ -16,7 +17,7 @@
 # Pre/Post-Install Anomalies:
 #   1) Upgrade via wifi problematic because of DNS changes during upgrade may cause disconnect(s)
 #   2) /home/pi-star/.config directory deleted?
-#   3) only three known Python programs fixed for 3.9; others may need to be modified
+#   3) only three known Python programs known to break if python 3.x is used
 #
 # ===========================================================================================================
 #rpi-rw
@@ -30,12 +31,17 @@ if [ ! "$(grep partuuid /boot/cmdline.txt)" ]; then   # (skip if this already ma
   uuid=$(ls -la /dev/disk/by-partuuid | sed -n 's/^.* \([[:alnum:]]*-[0-9]* \).*/\1/p' | sed -n 's/\(.*\)-.*/\1/p' | head -n 1)
   sudo sed -i.bak "s|\/dev\/mmcblk0p2 |PARTUUID=$uuid-02 |g" /boot/cmdline.txt
   sudo sed -i.bak "s|\/dev\/mmcblk0p2 |PARTUUID=$uuid-02 |g; s| quiet | |g" /boot/cmdline.txt
-  sudo sed -i.bak "s|\/dev\/mmcblk0p1|PARTUUID=$uuid-01|g" /etc/fstab
-  sudo sed -i "s|\/dev\/mmcblk0p2|PARTUUID=$uuid-02|g" /etc/fstab
+  sudo sed -i.bak "s|\/dev\/mmcblk0p1\t|PARTUUID=$uuid-01|g" /etc/fstab
+  sudo sed -i "s|\/dev\/mmcblk0p2\t|PARTUUID=$uuid-02|g" /etc/fstab
   sudo sed -i.bak "s/mmcblk0p2 /\x2e\x2a /g" /etc/bash.bashrc
   source /etc/bash.bashrc
   echo "===============================> boot code modified"
 fi
+#
+sudo sed -i 's/ elevator=deadline / /g' cmdline.txt     # remove: no longer in used
+sudo sed -i 's/ noswap / /g' cmdline.txt                # remove: unknown kernel param
+sudo sed -i '/^tmpfs.*\/sys\/fs\/cgroup/,1 {s/,mode=1755,size=32m/\t\t/g}' /etc/fstab  # mode,size not allowed?
+#
 read -p "-- press any key to continue --" ipq
 #
 echo "===============================> Initial OS info:"
@@ -140,6 +146,7 @@ read -p "-- press any key to continue --" ipq
 #
 echo "===============================> Cleanup:"
 sudo apt autoremove -y
+sudo apt clean
 #
 # ===========================================================================================================
 read -p "-- press any key to continue --" ipq
@@ -250,27 +257,27 @@ fi
 # -- misc installation notes
 # log of responses:
 #  1) response during "upgrade w/o new pkgs":
-#    etc/sudoers
-#    etc/nanorc
-#    etc/logrotate.conf
-#    etc/default/rcS
+#    etc/sudoers             80% progress
+#    etc/nanorc              82%
+#    etc/logrotate.conf      90%
+#    etc/default/rcS         90%
 #
 #  2) responses during "full-upgrade":
-#    etc/default/useradd
-#    etc/logrotate.d/rsyslog
-#    etc/rsyslog.conf
-#    etc/nginx/nginx.conf
+#    etc/default/useradd     23% 
+#    etc/logrotate.d/rsyslog 63%
+#    etc/rsyslog.conf        63%
+#    etc/nginx/nginx.conf    63%
 #    TAB-OK: run/samba/upgrades/smb.conf
-#    etc/default/dnsmasq
-#    etc/dnsmasq.conf
-#    etc/logrotate.d/exim4-base
-#    etc/logrotate.d/exim4-paniclog
-#    etc/sysctl.conf
+#    etc/default/dnsmasq     65%
+#    etc/dnsmasq.conf        65%
+#    etc/logrotate.d/exim4-base        80%
+#    etc/logrotate.d/exim4-paniclog    80%
+#    etc/sysctl.conf                   85%
 #    TAB-OK: /tmp... --> etc/ssh/ssh.conf
 #    TAB-OK: /usr/share/unattended-upgrades/50unattended-upgrades (cmt chg only?)
 #    etc/cups/cups-browsed.conf  (only if installed)
-#    etc/init.d/nmbd
-#    etc/init.d/smbd
+#    etc/init.d/nmbd         99%
+#    etc/init.d/smbd         99%
 #
 # Example boot doc:
 #   Modified: 2022-06-05 10:35:19
