@@ -7,7 +7,7 @@
 #   2) remove UI option from APT packages
 #   3) update APT packages to point to Bullseye archives
 #   4) install PHP/FPM 7.4 (7.0 version removed in Bullseye)
-#   5) re-install python 2.x
+#   5) re-install python 2.x (replaced by 3.x in Bullseye)
 #   6) finish updating held programs
 #
 # Assumptions:
@@ -196,6 +196,9 @@ sudo ln -fs /usr/bin/python2.7 /usr/bin/python    #  link generic python to 2.7
 #sudo sed -i 's/if "in checkprocremote:/in checkprocremote.decode():/g' pistar-watchdog
 sudo python --version
 #
+# https://forums.raspberrypi.com/viewtopic.php?t=323583:
+#sudo mv /lib/dhcpcd/dhcpcd-hooks/64-timesyncd.conf /lib/dhcpcd/dhcpcd-hooks/.64-timesyncd.conf
+#
 echo "==============================> Final OS info:"
 cat /etc/os-release
 echo "==="
@@ -222,6 +225,12 @@ cat $f
 #
 #sudo mkdir /home/pi-star/.config      # deleted during update?!?
 sudo sed -i 's/boot.log/bootx.log/g' /etc/logrotate.d/bootlog     # makes boot.log persistent
+#
+sudo sed -i 's/^PIDFile=/#PIDFile=/g' /lib/systemd/system/dstarrepeater.service  # PID seems unnecessary here
+#
+sudo sed -i 's/ExecStartPost=\//ExecStartPost=-\//g' /etc/systemd/system/apt-daily.service  # makes RO state conditional
+#
+sudo systemctl daemon-reload
 #--------------------------------------------------------------------------
 read -p "-- press any key to continue --" ipq
 sudo apt-mark unhold dhcpcd5
@@ -242,7 +251,7 @@ echo "--- (time to complete upgrade: " $(($t2-$t1)) "secs)"
 sudo mount -o remount,ro / ; sudo mount -o remount,ro /boot   # may fail; can ignore
 #
 # By this point, system should be fully upgraded and operational; reboot if you want
-read -p "--Reboot (Y/n)? " ipq
+read -p "--Recommended! Reboot (Y/n)? " ipq
 if [ "$ipq" == "Y" ]; then
   history -a
   sudo reboot
