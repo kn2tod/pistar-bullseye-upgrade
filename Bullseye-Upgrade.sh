@@ -174,7 +174,7 @@ fi
 echo "==="
 sudo nginx -t                          # config check
 sudo systemctl restart nginx           # restart just-in-case
-sudo systemclt restart php7.4-fpm      # restart just-in-case
+sudo systemctl restart php7.4-fpm      # restart just-in-case
 echo "==="
 php --version                          # list current version info
 echo "==="
