@@ -4,11 +4,12 @@
 # Basic updates/changes:
 #   1) change boot device for consistency with all current Raspbian systems;
 #      remove obsolete cmdline.txt options; fix incorrect fstab options
-#   2) remove UI option from APT packages
-#   3) update APT packages to point to Bullseye archives
+#   2) remove UI option from APT packages; update APT packages to point to Bullseye archives
+#   3) run the update/upgrade APT process
 #   4) install PHP/FPM 7.4 (7.0 version removed in Bullseye)
-#   5) re-install python 2.x (replaced by 3.x in Bullseye)
+#   5) re-install python 2.x (removed/replaced by 3.x in Bullseye)
 #   6) finish updating held programs
+#   7) apply some minor fixes (broken in original installation)
 #
 # Assumptions:
 #   Starting from a current Raspbian/Pi-Star system: all applicable updates applied
@@ -155,6 +156,7 @@ if [ ! -x /usr/bin/php7.4 ]; then
 # ref: https://www.linuxcapable.com/how-to-install-php-7-4-on-debian-11-bullseye/
 # ref: https://www.techrepublic.com/article/how-to-add-php-fpm-support-for-nginx-sites/
 sudo apt install php7.4 php7.4-fpm php7.4-cli -y
+sudo apt install php7.4-mbstring -y
 sudo sed -i "s/php7.0-/php7.4-/g" /etc/nginx/default.d/php.conf
 echo "==="
 cat /etc/nginx/default.d/php.conf
@@ -172,6 +174,7 @@ fi
 echo "==="
 sudo nginx -t                          # config check
 sudo systemctl restart nginx           # restart just-in-case
+sudo systemclt restart php7.4-fpm      # restart just-in-case
 echo "==="
 php --version                          # list current version info
 echo "==="
