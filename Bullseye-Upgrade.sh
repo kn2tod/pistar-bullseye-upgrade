@@ -39,8 +39,8 @@ if [ ! "$(grep partuuid /boot/cmdline.txt)" ]; then   # (skip if this already ma
   echo "===============================> boot code modified"
 fi
 #
-sudo sed -i 's/ elevator=deadline / /g' cmdline.txt     # remove: no longer in used
-sudo sed -i 's/ noswap / /g' cmdline.txt                # remove: unknown kernel param
+sudo sed -i 's/ elevator=deadline / /g' /boot/cmdline.txt     # remove: no longer in use/supported
+sudo sed -i 's/ noswap / /g' /boot/cmdline.txt                # remove: unknown kernel param
 sudo sed -i '/^tmpfs.*\/sys\/fs\/cgroup/,1 {s/,mode=1755,size=32m/\t\t/g}' /etc/fstab  # mode,size not allowed?
 #
 read -p "-- press any key to continue --" ipq
