@@ -227,6 +227,8 @@ sudo echo "Hardware: ($(sed -n 's|^Model.*: Raspberry \(.*\)|\1|p' /proc/cpuinfo
 cat $f
 #
 #sudo mkdir /home/pi-star/.config      # deleted during update?!?
+sudo sed -i '/cron.daily/,/^mount/ s/mount -o remount,ro \/$/& || true/g' /etc/rc.local  # make sure script completes all steps
+#
 sudo sed -i 's/boot.log/bootx.log/g' /etc/logrotate.d/bootlog     # makes boot.log persistent
 #
 sudo sed -i 's/^PIDFile=/#PIDFile=/g' /lib/systemd/system/dstarrepeater.service  # PID seems unnecessary here
